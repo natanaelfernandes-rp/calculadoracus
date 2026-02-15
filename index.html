@@ -274,7 +274,7 @@ document.getElementById('toggleCostPrice').addEventListener('click', () => {
 
   if (costMode) {
     btn.innerHTML = `<i class="fa-solid fa-coins"></i> Preço de Custo: ON`;
-    btn.style.background = "#2ecc71"; // verde elegante
+    btn.style.background = "#e67e22"; // laranja profissional
   } else {
     btn.innerHTML = `<i class="fa-solid fa-coins"></i> Preço de Custo: OFF`;
     btn.style.background = "var(--accent)";
@@ -385,20 +385,36 @@ qtyInput.addEventListener('input', () => {
   }
 
   function saveSale(){
-    recalcPreview();
-    if(currentItems.length===0){alert('Nenhum item válido.'); return;}
-    const total=currentItems.reduce((s,i)=>s+i.subtotal,0);
-    const timestamp=new Date().toLocaleString('pt-BR');
-    const clientPass=document.getElementById('clientPass').value || '-';
-    const record={id:Date.now(), timestamp, total, items:currentItems, clientPass};
-    history.unshift(record);
-    if(history.length>200) history=history.slice(0,200);
-    localStorage.setItem('calc_history_v1',JSON.stringify(history));
-    renderHistory();
-    itemsListEl.querySelectorAll('.qty-input').forEach(q => q.value = 0);
-    document.getElementById('clientPass').value='';
-    recalcPreview();
-  }
+  recalcPreview();
+  if(currentItems.length===0){alert('Nenhum item válido.'); return;}
+
+  const total=currentItems.reduce((s,i)=>s+i.subtotal,0);
+  const timestamp=new Date().toLocaleString('pt-BR');
+  const clientPass=document.getElementById('clientPass').value || '-';
+
+  const saleType = costMode ? "Preço de Custo" : "Normal";
+
+  const record={
+    id:Date.now(),
+    timestamp,
+    total,
+    items:currentItems,
+    clientPass,
+    costMode,          // salva o estado real
+    saleType           // salva descrição legível
+  };
+
+  history.unshift(record);
+  if(history.length>200) history=history.slice(0,200);
+
+  localStorage.setItem('calc_history_v1',JSON.stringify(history));
+
+  renderHistory();
+
+  itemsListEl.querySelectorAll('.qty-input').forEach(q => q.value = 0);
+  document.getElementById('clientPass').value='';
+  recalcPreview();
+}
 
   function renderHistory(){
     historyListEl.innerHTML='';
@@ -407,13 +423,22 @@ qtyInput.addEventListener('input', () => {
       const div=document.createElement('div'); div.className='history-item';
       const left=document.createElement('div');
       left.innerHTML=`<div style="font-weight:600">R$ ${formatBR(record.total)}</div>
-                      <div class="history-meta">${record.timestamp}</div>
-                      <div style="font-size:12px;color:rgba(0,0,0,0.6)">Passaporte: ${record.clientPass}</div>`;
+                <div class="history-meta">${record.timestamp}</div>
+                <div style="font-size:12px;color:${record.costMode ? "#e67e22" : "#3498db"};font-weight:600">
+  ${record.costMode ? "Venda a Preço de Custo" : "Venda Normal"}
+</div>
+                <div style="font-size:12px;color:rgba(255,255,2550.6)">Passaporte: ${record.clientPass}</div>`;
       const right=document.createElement('div'); right.style.textAlign='right';
       right.innerHTML=`<button class="btn small" data-id="${record.id}"><i class="fa-solid fa-eye"></i> Ver</button>
                        <button class="btn small ghost" data-del="${record.id}"><i class="fa-solid fa-trash"></i></button>`;
       div.appendChild(left); div.appendChild(right); historyListEl.appendChild(div);
-      right.querySelector('[data-id]').addEventListener('click',()=>{const rec=history.find(h=>h.id==record.id); if(!rec) return; alert(`${rec.timestamp}\nTotal: R$ ${formatBR(rec.total)}\nPassaporte: ${rec.clientPass}\n\nItens:\n${rec.items.map(it=>`${it.name} x${it.qty} = R$ ${formatBR(it.subtotal)}`).join('\n')}`)});
+      right.querySelector('[data-id]').addEventListener('click',()=>{const rec=history.find(h=>h.id==record.id); if(!rec) return; alert(`${rec.timestamp}
+Modo: ${rec.saleType || "Normal"}
+Total: R$ ${formatBR(rec.total)}
+Passaporte: ${rec.clientPass}
+
+Itens:
+${rec.items.map(it=>`${it.name} x${it.qty} = R$ ${formatBR(it.subtotal)}`).join('\n')}`)});
       right.querySelector('[data-del]').addEventListener('click',e=>{if(!confirm('Remover registro?')) return; const id=parseInt(e.currentTarget.getAttribute('data-del')); history=history.filter(h=>h.id!==id); localStorage.setItem('calc_history_v1',JSON.stringify(history)); renderHistory();});
     });
   }
@@ -421,8 +446,10 @@ qtyInput.addEventListener('input', () => {
   document.getElementById('btnSaveSale').addEventListener('click',saveSale);
   document.getElementById('btnReset').addEventListener('click',()=>{if(confirm('Limpar campos?')) addFixedRows();});
   document.getElementById('clearHistory').addEventListener('click',()=>{if(confirm('Limpar histórico?')){history=[]; localStorage.removeItem('calc_history_v1'); renderHistory();}});
-  document.getElementById('downloadCSV').addEventListener('click',()=>{if(history.length===0){alert('Não há histórico.'); return;} let csv='Timestamp,Total (R$),Passaporte,Itens\n'; history.forEach(h=>{const itemsStr=h.items.map(i=>`${i.name} x${i.qty} (R$ ${formatBR(i.subtotal)})`).join(' | '); csv+=`"${h.timestamp}",${h.total.toFixed(2)},"${h.clientPass}","${itemsStr.replaceAll('"','""')}"\n`;}); const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'}); const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download='historico_vendas.csv'; a.click(); URL.revokeObjectURL(url);});
-  document.getElementById('downloadPDF').addEventListener('click',async()=>{if(history.length===0){alert('Não há histórico.'); return;} const {jsPDF}=window.jspdf; const doc=new jsPDF({unit:'pt',format:'a4'}); doc.setFontSize(14); doc.text('Histórico de Vendas',40,40); let y=70; const lineHeight=16; history.forEach(h=>{if(y>740){doc.addPage(); y=40;} doc.setDrawColor(180); doc.setLineWidth(0.5); doc.line(40, y-4, 555, y-4); doc.setFontSize(11); doc.text(`${h.timestamp} — Total: R$ ${formatBR(h.total)}`,40,y); y+=lineHeight; doc.setFontSize(10); doc.text(`Cliente/Passaporte: ${h.clientPass}`,40,y); y+=lineHeight; const itemsTxt=h.items.map(it=>`${it.name} x${it.qty} = R$ ${formatBR(it.subtotal)}`).join(' ; '); const split=doc.splitTextToSize(itemsTxt,500); doc.text(split,60,y); y+=split.length*lineHeight+8;}); doc.save('historico_vendas.pdf');});
+  document.getElementById('downloadCSV').addEventListener('click',()=>{if(history.length===0){alert('Não há histórico.'); return;} let csv='Timestamp,Modo,Total (R$),Passaporte,Itens\n'; history.forEach(h=>{
+  const itemsStr=h.items.map(i=>`${i.name} x${i.qty} (R$ ${formatBR(i.subtotal)})`).join(' | ');
+  csv+=`"${h.timestamp}","${h.saleType || "Normal"}",${h.total.toFixed(2)},"${h.clientPass}","${itemsStr.replaceAll('"','""')}"\n`;}); const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'}); const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download='historico_vendas.csv'; a.click(); URL.revokeObjectURL(url);});
+  document.getElementById('downloadPDF').addEventListener('click',async()=>{if(history.length===0){alert('Não há histórico.'); return;} const {jsPDF}=window.jspdf; const doc=new jsPDF({unit:'pt',format:'a4'}); doc.setFontSize(14); doc.text('Histórico de Vendas',40,40); let y=70; const lineHeight=16; history.forEach(h=>{if(y>740){doc.addPage(); y=40;} doc.setDrawColor(180); doc.setLineWidth(0.5); doc.line(40, y-4, 555, y-4); doc.setFontSize(11); doc.text(`${h.timestamp} — ${h.saleType || "Normal"} — Total: R$ ${formatBR(h.total)}`,40,y); y+=lineHeight; doc.setFontSize(10); doc.text(`Cliente/Passaporte: ${h.clientPass}`,40,y); y+=lineHeight; const itemsTxt=h.items.map(it=>`${it.name} x${it.qty} = R$ ${formatBR(it.subtotal)}`).join(' ; '); const split=doc.splitTextToSize(itemsTxt,500); doc.text(split,60,y); y+=split.length*lineHeight+8;}); doc.save('historico_vendas.pdf');});
 
   addFixedRows(); renderHistory();
 })();
