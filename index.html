@@ -156,13 +156,6 @@ td.item-name{display:flex;align-items:center;gap:8px;}
   background: var(--accent-2);
 }
 
-.qty-value {
-  font-weight: bold;
-  width: 26px;
-  text-align: center;
-  font-size: 16px;
-}
-
 </style>
 </head>
 <body>
@@ -175,14 +168,12 @@ td.item-name{display:flex;align-items:center;gap:8px;}
     </div>
 
     <button class="btn small" id="toggleCostPrice" style="margin-bottom:10px;">
-  <i class="fa-solid fa-coins"></i> Preço de Custo: OFF
-</button>
+      <i class="fa-solid fa-coins"></i> Preço de Custo: OFF
+    </button>
 
-
-    <!-- Passaporte / Cliente -->
     <div style="margin-bottom:10px;">
       <label for="clientPass">Passaporte / Paciente:</label>
-      <input type="text" id="clientPass" placeholder="Ex: 123456789" style="width:100%; padding:6px 8px; border-radius:6px; border:1px solid rgba(0,0,0,0.1); font-size:14px;">
+      <input type="text" id="clientPass" placeholder="Ex: 123456789" style="width:100%; padding:6px 8px; border-radius:6px; border:1px solid rgba(255,255,255,0.1); background: rgba(0,0,0,0.2); color: white; font-size:14px;">
     </div>
 
     <div class="items-list" id="itemsList"></div>
@@ -213,7 +204,6 @@ td.item-name{display:flex;align-items:center;gap:8px;}
   </div>
 </div>
 
-<!-- RODAPÉ ADICIONADO -->
 <div style="text-align:center; margin-top:20px; opacity:0.85; font-size:14px; font-weight:600;">
   Desenvolvido por <span style="color:#3399FF;">N. F.</span>
 </div>
@@ -221,145 +211,99 @@ td.item-name{display:flex;align-items:center;gap:8px;}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script>
 
-  // Som de clique
+// Som de clique
 const clickSound = new Audio("https://assets.mixkit.co/sfx/preview/mixkit-interface-click-1126.mp3");
 
-// Função para tocar sem delay
+// Função para tocar som sem delay
 function playClick() {
   clickSound.currentTime = 0;
   clickSound.play();
 }
 
 (() => {
-  const bgImage = "imagens/fundo.png"; // 🔵 LINK DA IMAGEM DE FUNDO (troque aqui)
-  const logoImage = "imagens/logoCUS.png"; // 🔵 LINK DA LOGO (troque aqui) 
+  // Configurações de imagem
+  const bgImage = "imagens/fundo.png"; // 🔵 LINK DA IMAGEM DE FUNDO
+  const logoImage = "imagens/logoCUS.png"; // 🔵 LINK DA LOGO 
   document.documentElement.style.setProperty('--bg-image', `url('${bgImage}')`);
   document.querySelector('.logo').src = logoImage;
 
+  // Formatação de moeda Brasileira
   const formatBR=n=>n.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
+  
+  // Variáveis de estado
   let currentItems=[], history=JSON.parse(localStorage.getItem('calc_history_v1')||'[]');
   const itemsListEl=document.getElementById('itemsList'), vendaTableBody=document.getElementById('vendaTable'), totalValueEl=document.getElementById('totalValue'), historyListEl=document.getElementById('historyList');
 
+  // Itens fixos da calculadora
   const defaultItems=[
-  {name:'Bandagem', price:400, icon:'fa-bandage'},
-  {name:'Kit Médico', price:700, icon:'fa-kit-medical'},
-  {name:'Calmante', price:1000, icon:'fa-capsules'},
-  {name:'Tratamento', price:500, icon:'fa-user-nurse'}
+    {name:'Bandagem', price:400, icon:'fa-bandage'},
+    {name:'Kit Médico', price:700, icon:'fa-kit-medical'},
+    {name:'Calmante', price:1000, icon:'fa-capsules'},
+    {name:'Tratamento', price:500, icon:'fa-user-nurse'}
   ];
 
   // Estado do modo de preço de custo
-let costMode = false;
+  let costMode = false;
 
-// Preços normais
-const normalPrices = {
-  'Bandagem': 400,
-  'Kit Médico': 700,
-  'Calmante': 1000,
-  'Tratamento': 500
-};
+  // Definição de preços (Normal vs Custo)
+  const normalPrices = { 'Bandagem': 400, 'Kit Médico': 700, 'Calmante': 1000, 'Tratamento': 500 };
+  const costPrices = { 'Bandagem': 150, 'Kit Médico': 350, 'Calmante': 700, 'Tratamento': 500 };
 
-// Preços de custo solicitados
-const costPrices = {
-  'Bandagem': 150,
-  'Kit Médico': 350,
-  'Calmante': 700,
-  'Tratamento': 500 // mesmo valor
-};
+  // Alternar preços ao clicar no botão de custo
+  document.getElementById('toggleCostPrice').addEventListener('click', () => {
+    costMode = !costMode;
+    const btn = document.getElementById('toggleCostPrice');
 
-// Alternar preços ao clicar no botão
-document.getElementById('toggleCostPrice').addEventListener('click', () => {
-  costMode = !costMode;
+    if (costMode) {
+      btn.innerHTML = `<i class="fa-solid fa-coins"></i> Preço de Custo: ON`;
+      btn.style.background = "#e67e22"; // Laranja
+    } else {
+      btn.innerHTML = `<i class="fa-solid fa-coins"></i> Preço de Custo: OFF`;
+      btn.style.background = "var(--accent)"; // Azul
+    }
 
-  const btn = document.getElementById('toggleCostPrice');
-
-  if (costMode) {
-    btn.innerHTML = `<i class="fa-solid fa-coins"></i> Preço de Custo: ON`;
-    btn.style.background = "#e67e22"; // laranja profissional
-  } else {
-    btn.innerHTML = `<i class="fa-solid fa-coins"></i> Preço de Custo: OFF`;
-    btn.style.background = "var(--accent)";
-  }
-
-  const rows = Array.from(document.querySelectorAll('.item-row'));
-
-  rows.forEach(row => {
-    const name = row.querySelector('.iname').textContent.trim();
-    const priceEl = row.querySelector('.iprice');
-
-    const price = costMode ? costPrices[name] : normalPrices[name];
-
-    priceEl.textContent = `R$ ${formatBR(price)}`;
+    // Atualiza os preços exibidos na interface
+    const rows = Array.from(document.querySelectorAll('.item-row'));
+    rows.forEach(row => {
+      const name = row.querySelector('.iname').textContent.trim();
+      const priceEl = row.querySelector('.iprice');
+      const price = costMode ? costPrices[name] : normalPrices[name];
+      priceEl.textContent = `R$ ${formatBR(price)}`;
+    });
+    recalcPreview();
   });
 
-  recalcPreview();
-});
+  // Função para criar a linha de cada item
+  function createItemRow(data) {
+    const div = document.createElement('div');
+    div.className = 'item-row';
+    div.innerHTML = `
+      <i class="fa-solid ${data.icon}"></i>
+      <div class="iname">${data.name}</div>
+      <div style="display:flex; align-items:center; gap:6px; justify-content:center;">
+        <button class="qty-btn minus">–</button>
+        <input type="number" class="qty-input" value="0" min="0" style="width:55px; text-align:center; font-weight:700; border-radius:8px; border:1px solid rgba(0,0,0,0.1); padding:6px;">
+        <button class="qty-btn plus">+</button>
+      </div>
+      <span class="iprice">R$ ${formatBR(data.price)}</span>
+    `;
 
-
-function createItemRow(data) {
-  const div = document.createElement('div');
-  div.className = 'item-row';
-
-  div.innerHTML = `
-    <i class="fa-solid ${data.icon}"></i>
-    <div class="iname">${data.name}</div>
-
-    <div style="display:flex; align-items:center; gap:6px; justify-content:center;">
-  <button class="qty-btn minus">–</button>
-  
-  <input type="number" 
-         class="qty-input" 
-         value="0" 
-         min="0" 
-         style="width:55px; text-align:center; font-weight:700; border-radius:8px; border:1px solid rgba(0,0,0,0.1); padding:6px;">
-  
-  <button class="qty-btn plus">+</button>
-</div>
-
-    <span class="iprice">R$ ${formatBR(data.price)}</span>
-  `;
-
-  const qtyInput = div.querySelector('.qty-input');
-  const btnPlus = div.querySelector('.plus');
-  const btnMinus = div.querySelector('.minus');
-
-btnPlus.addEventListener('click', () => {
-  playClick();
-  qtyInput.value = parseInt(qtyInput.value || 0) + 1;
-  recalcPreview();
-});
-
-btnMinus.addEventListener('click', () => {
-  playClick();
-  let current = parseInt(qtyInput.value || 0);
-if (current > 0) {
-  qtyInput.value = current - 1;
-    recalcPreview();
+    const qtyInput = div.querySelector('.qty-input');
+    div.querySelector('.plus').addEventListener('click', () => { playClick(); qtyInput.value = parseInt(qtyInput.value || 0) + 1; recalcPreview(); });
+    div.querySelector('.minus').addEventListener('click', () => { playClick(); let current = parseInt(qtyInput.value || 0); if (current > 0) { qtyInput.value = current - 1; recalcPreview(); } });
+    qtyInput.addEventListener('input', () => { if (qtyInput.value < 0) qtyInput.value = 0; recalcPreview(); });
+    return div;
   }
-});
 
-qtyInput.addEventListener('input', () => {
-  if (qtyInput.value < 0) qtyInput.value = 0;
-  recalcPreview();
-});
-
-
-
-  return div;
-}
-
-
+  // Inicializa a lista de itens
   function addFixedRows(){ itemsListEl.innerHTML=''; defaultItems.forEach(it=>itemsListEl.appendChild(createItemRow(it))); recalcPreview(); }
 
+  // Recalcula o subtotal e total em tempo real
   function recalcPreview(){
     const rows=Array.from(itemsListEl.querySelectorAll('.item-row'));
     currentItems=rows.map(r=>{
       const name=r.querySelector('.iname').textContent;
-      const price=parseFloat(
-        r.querySelector('.iprice').textContent
-          .replace(/\./g,'')
-          .replace(',', '.')
-          .replace(/[^\d.]/g,'')
-      )||0;
+      const price=parseFloat(r.querySelector('.iprice').textContent.replace(/\./g,'').replace(',', '.').replace(/[^\d.]/g,''))||0;
       const qty = parseInt(r.querySelector('.qty-input').value) || 0;
       return {name, price, qty, subtotal:Math.max(0,price*qty)};
     }).filter(it=>it.qty>0);
@@ -373,6 +317,7 @@ qtyInput.addEventListener('input', () => {
       total+=it.subtotal;
     });
 
+    // Animação numérica do total
     let start=0, end=total, duration=400;
     const startTime=performance.now();
     function animate(time){
@@ -384,73 +329,143 @@ qtyInput.addEventListener('input', () => {
     requestAnimationFrame(animate);
   }
 
+  // Salva a venda no histórico e no LocalStorage
   function saveSale(){
-  recalcPreview();
-  if(currentItems.length===0){alert('Nenhum item válido.'); return;}
+    recalcPreview();
+    if(currentItems.length===0){alert('Nenhum item válido.'); return;}
 
-  const total=currentItems.reduce((s,i)=>s+i.subtotal,0);
-  const timestamp=new Date().toLocaleString('pt-BR');
-  const clientPass=document.getElementById('clientPass').value || '-';
+    const total=currentItems.reduce((s,i)=>s+i.subtotal,0);
+    const timestamp=new Date().toLocaleString('pt-BR');
+    const clientPass=document.getElementById('clientPass').value || '-';
 
-  const saleType = costMode ? "Preço de Custo" : "Normal";
+    const record={
+      id:Date.now(),
+      timestamp,
+      total,
+      items:currentItems,
+      clientPass,
+      costMode, // Salva se foi preço de custo
+      saleType: costMode ? "Preço de Custo" : "Normal"
+    };
 
-  const record={
-    id:Date.now(),
-    timestamp,
-    total,
-    items:currentItems,
-    clientPass,
-    costMode,          // salva o estado real
-    saleType           // salva descrição legível
-  };
+    history.unshift(record);
+    if(history.length>200) history=history.slice(0,200);
+    localStorage.setItem('calc_history_v1',JSON.stringify(history));
+    renderHistory();
 
-  history.unshift(record);
-  if(history.length>200) history=history.slice(0,200);
+    // Limpa campos após salvar
+    itemsListEl.querySelectorAll('.qty-input').forEach(q => q.value = 0);
+    document.getElementById('clientPass').value='';
+    recalcPreview();
+  }
 
-  localStorage.setItem('calc_history_v1',JSON.stringify(history));
-
-  renderHistory();
-
-  itemsListEl.querySelectorAll('.qty-input').forEach(q => q.value = 0);
-  document.getElementById('clientPass').value='';
-  recalcPreview();
-}
-
+  // Renderiza a lista de histórico na lateral
   function renderHistory(){
     historyListEl.innerHTML='';
     if(history.length===0){historyListEl.innerHTML='<div style="padding:12px;color:rgba(255,255,255,0.5)">Nenhuma venda registrada.</div>'; return;}
+    
     history.forEach(record=>{
       const div=document.createElement('div'); div.className='history-item';
       const left=document.createElement('div');
-      left.innerHTML=`<div style="font-weight:600">R$ ${formatBR(record.total)}</div>
-                <div class="history-meta">${record.timestamp}</div>
-                <div style="font-size:12px;color:${record.costMode ? "#e67e22" : "#3498db"};font-weight:600">
-  ${record.costMode ? "Venda a Preço de Custo" : "Venda Normal"}
-</div>
-                <div style="font-size:12px;color:rgba(255,255,2550.6)">Passaporte: ${record.clientPass}</div>`;
+      
+      // Define a cor baseada no tipo de venda para o histórico
+      const typeColor = record.costMode ? "#e67e22" : "#3399FF";
+      
+      left.innerHTML=`
+        <div style="font-weight:600">R$ ${formatBR(record.total)}</div>
+        <div class="history-meta" style="font-size:11px; opacity:0.8;">${record.timestamp}</div>
+        <div style="font-size:12px; color:${typeColor}; font-weight:600">${record.saleType}</div>
+        <div style="font-size:12px; opacity:0.7;">Passaporte: ${record.clientPass}</div>`;
+      
       const right=document.createElement('div'); right.style.textAlign='right';
-      right.innerHTML=`<button class="btn small" data-id="${record.id}"><i class="fa-solid fa-eye"></i> Ver</button>
-                       <button class="btn small ghost" data-del="${record.id}"><i class="fa-solid fa-trash"></i></button>`;
+      right.innerHTML=`
+        <button class="btn small" data-id="${record.id}"><i class="fa-solid fa-eye"></i></button>
+        <button class="btn small ghost" data-del="${record.id}"><i class="fa-solid fa-trash"></i></button>`;
+      
       div.appendChild(left); div.appendChild(right); historyListEl.appendChild(div);
-      right.querySelector('[data-id]').addEventListener('click',()=>{const rec=history.find(h=>h.id==record.id); if(!rec) return; alert(`${rec.timestamp}
-Modo: ${rec.saleType || "Normal"}
-Total: R$ ${formatBR(rec.total)}
-Passaporte: ${rec.clientPass}
 
-Itens:
-${rec.items.map(it=>`${it.name} x${it.qty} = R$ ${formatBR(it.subtotal)}`).join('\n')}`)});
-      right.querySelector('[data-del]').addEventListener('click',e=>{if(!confirm('Remover registro?')) return; const id=parseInt(e.currentTarget.getAttribute('data-del')); history=history.filter(h=>h.id!==id); localStorage.setItem('calc_history_v1',JSON.stringify(history)); renderHistory();});
+      // Evento de Visualizar Detalhes
+      right.querySelector('[data-id]').addEventListener('click',()=>{
+        const rec=history.find(h=>h.id==record.id);
+        alert(`${rec.timestamp}\nModo: ${rec.saleType}\nTotal: R$ ${formatBR(rec.total)}\nPassaporte: ${rec.clientPass}\n\nItens:\n${rec.items.map(it=>`${it.name} x${it.qty} = R$ ${formatBR(it.subtotal)}`).join('\n')}`);
+      });
+
+      // Evento de Excluir Registro
+      right.querySelector('[data-del]').addEventListener('click',e=>{
+        if(!confirm('Remover registro?')) return;
+        const id=parseInt(e.currentTarget.getAttribute('data-del'));
+        history=history.filter(h=>h.id!==id);
+        localStorage.setItem('calc_history_v1',JSON.stringify(history));
+        renderHistory();
+      });
     });
   }
 
+  // Exportar para CSV
+  document.getElementById('downloadCSV').addEventListener('click',()=>{
+    if(history.length===0){alert('Não há histórico.'); return;}
+    let csv='Timestamp,Modo,Total (R$),Passaporte,Itens\n';
+    history.forEach(h=>{
+      const itemsStr=h.items.map(i=>`${i.name} x${i.qty}`).join(' | ');
+      csv+=`"${h.timestamp}","${h.saleType}",${h.total.toFixed(2)},"${h.clientPass}","${itemsStr}"\n`;
+    });
+    const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a'); a.href=url; a.download='historico_vendas.csv'; a.click();
+  });
+
+  // Exportar para PDF com separação por cores
+  document.getElementById('downloadPDF').addEventListener('click', async () => {
+    if (history.length === 0) { alert('Não há histórico.'); return; }
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ unit: 'pt', format: 'a4' });
+    
+    doc.setFontSize(18);
+    doc.setTextColor(51, 153, 255);
+    doc.text('Relatório de Vendas - Histórico', 40, 45);
+    
+    let y = 80;
+
+    history.forEach(h => {
+      if (y > 720) { doc.addPage(); y = 50; }
+
+      // 🎨 Lógica de Cores no PDF
+      if (h.costMode) {
+        doc.setFillColor(230, 126, 34); // Laranja (Preço de Custo)
+      } else {
+        doc.setFillColor(51, 153, 255); // Azul (Venda Normal)
+      }
+
+      // Barra lateral decorativa
+      doc.rect(40, y, 5, 50, 'F');
+      
+      doc.setFontSize(11);
+      doc.setFont(undefined, 'bold');
+      doc.setTextColor(30, 30, 30);
+      doc.text(`${h.timestamp} - ${h.saleType}`, 55, y + 12);
+
+      doc.setFont(undefined, 'normal');
+      doc.setFontSize(10);
+      doc.text(`Total: R$ ${formatBR(h.total)} | Passaporte: ${h.clientPass}`, 55, y + 26);
+
+      doc.setFontSize(9);
+      doc.setTextColor(80, 80, 80);
+      const itemsTxt = "Itens: " + h.items.map(it => `${it.name} (x${it.qty})`).join(' | ');
+      const splitItems = doc.splitTextToSize(itemsTxt, 480);
+      doc.text(splitItems, 55, y + 38);
+
+      y += 65; // Salto para a próxima venda
+    });
+
+    doc.save('historico_vendas.pdf');
+  });
+
+  // Botões de ação geral
   document.getElementById('btnSaveSale').addEventListener('click',saveSale);
   document.getElementById('btnReset').addEventListener('click',()=>{if(confirm('Limpar campos?')) addFixedRows();});
   document.getElementById('clearHistory').addEventListener('click',()=>{if(confirm('Limpar histórico?')){history=[]; localStorage.removeItem('calc_history_v1'); renderHistory();}});
-  document.getElementById('downloadCSV').addEventListener('click',()=>{if(history.length===0){alert('Não há histórico.'); return;} let csv='Timestamp,Modo,Total (R$),Passaporte,Itens\n'; history.forEach(h=>{
-  const itemsStr=h.items.map(i=>`${i.name} x${i.qty} (R$ ${formatBR(i.subtotal)})`).join(' | ');
-  csv+=`"${h.timestamp}","${h.saleType || "Normal"}",${h.total.toFixed(2)},"${h.clientPass}","${itemsStr.replaceAll('"','""')}"\n`;}); const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'}); const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download='historico_vendas.csv'; a.click(); URL.revokeObjectURL(url);});
-  document.getElementById('downloadPDF').addEventListener('click',async()=>{if(history.length===0){alert('Não há histórico.'); return;} const {jsPDF}=window.jspdf; const doc=new jsPDF({unit:'pt',format:'a4'}); doc.setFontSize(14); doc.text('Histórico de Vendas',40,40); let y=70; const lineHeight=16; history.forEach(h=>{if(y>740){doc.addPage(); y=40;} doc.setDrawColor(180); doc.setLineWidth(0.5); doc.line(40, y-4, 555, y-4); doc.setFontSize(11); doc.text(`${h.timestamp} — ${h.saleType || "Normal"} — Total: R$ ${formatBR(h.total)}`,40,y); y+=lineHeight; doc.setFontSize(10); doc.text(`Cliente/Passaporte: ${h.clientPass}`,40,y); y+=lineHeight; const itemsTxt=h.items.map(it=>`${it.name} x${it.qty} = R$ ${formatBR(it.subtotal)}`).join(' ; '); const split=doc.splitTextToSize(itemsTxt,500); doc.text(split,60,y); y+=split.length*lineHeight+8;}); doc.save('historico_vendas.pdf');});
 
+  // Inicialização
   addFixedRows(); renderHistory();
 })();
 </script>
