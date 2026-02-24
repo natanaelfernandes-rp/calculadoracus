@@ -228,8 +228,8 @@ function playClick() {
 
 (() => {
   // Configurações de imagem
-  const bgImage = "imagens/fundo.png"; 
-  const logoImage = "imagens/logoCUS.png"; 
+  const bgImage = "imagens/fundo.png"; // 🔵 LINK DA IMAGEM DE FUNDO
+  const logoImage = "imagens/logoCUS.png"; // 🔵 LINK DA LOGO 
   document.documentElement.style.setProperty('--bg-image', `url('${bgImage}')`);
   document.querySelector('.logo').src = logoImage;
 
@@ -350,7 +350,7 @@ function playClick() {
       total,
       items:currentItems,
       clientPass,
-      costMode, 
+      costMode, // Salva se foi preço de custo para aplicar a cor depois
       saleType: costMode ? "Preço de Custo" : "Normal"
     };
 
@@ -365,7 +365,7 @@ function playClick() {
     recalcPreview();
   }
 
-  // Renderiza a lista de histórico na lateral com distinção de cores
+  // Renderiza a lista de histórico na lateral com cores (Azul/Laranja)
   function renderHistory(){
     historyListEl.innerHTML='';
     if(history.length===0){historyListEl.innerHTML='<div style="padding:12px;color:rgba(255,255,255,0.5)">Nenhuma venda registrada.</div>'; return;}
@@ -374,7 +374,7 @@ function playClick() {
       const div=document.createElement('div'); div.className='history-item';
       const left=document.createElement('div');
       
-      // Cor baseada no tipo de venda para o histórico (Laranja para custo, Azul para normal)
+      // Define a cor baseada no tipo de venda para o histórico lateral
       const typeColor = record.costMode ? "#e67e22" : "#3399FF";
       
       left.innerHTML=`
@@ -420,7 +420,7 @@ function playClick() {
     const a=document.createElement('a'); a.href=url; a.download='historico_vendas.csv'; a.click();
   });
 
-  // Exportar para PDF com separação por cores (Azul para normal, Laranja para custo)
+  // Exportar para PDF com separação por cores e blocos
   document.getElementById('downloadPDF').addEventListener('click', async () => {
     if (history.length === 0) { alert('Não há histórico.'); return; }
     const { jsPDF } = window.jspdf;
@@ -428,39 +428,43 @@ function playClick() {
     
     doc.setFontSize(18);
     doc.setTextColor(51, 153, 255);
-    doc.text('Relatório de Vendas - Histórico', 40, 45);
+    doc.text('Relatório de Vendas - Hospital CUS', 40, 45);
     
     let y = 80;
 
     history.forEach(h => {
+      // Verifica se precisa de nova página
       if (y > 720) { doc.addPage(); y = 50; }
 
-      // 🎨 Cor do indicador no PDF baseada no tipo de venda
+      // 🎨 Aplica cor baseada no tipo de venda: Laranja para Custo, Azul para Normal
       if (h.costMode) {
-        doc.setFillColor(230, 126, 34); // Laranja (Preço de Custo)
+        doc.setFillColor(230, 126, 34); 
       } else {
-        doc.setFillColor(51, 153, 255); // Azul (Venda Normal)
+        doc.setFillColor(51, 153, 255); 
       }
 
-      // Barra lateral decorativa para organizar as vendas separadamente
+      // Desenha a barra lateral indicativa de cor
       doc.rect(40, y, 5, 50, 'F');
       
+      // Cabeçalho da venda no PDF
       doc.setFontSize(11);
       doc.setFont(undefined, 'bold');
       doc.setTextColor(30, 30, 30);
-      doc.text(`${h.timestamp} - ${h.saleType}`, 55, y + 12);
+      doc.text(`${h.timestamp} — ${h.saleType}`, 55, y + 12);
 
+      // Detalhes da venda
       doc.setFont(undefined, 'normal');
       doc.setFontSize(10);
       doc.text(`Total: R$ ${formatBR(h.total)} | Passaporte: ${h.clientPass}`, 55, y + 26);
 
+      // Listagem de itens
       doc.setFontSize(9);
       doc.setTextColor(80, 80, 80);
       const itemsTxt = "Itens: " + h.items.map(it => `${it.name} (x${it.qty})`).join(' | ');
       const splitItems = doc.splitTextToSize(itemsTxt, 480);
       doc.text(splitItems, 55, y + 38);
 
-      y += 65; // Salto para a próxima venda no documento PDF
+      y += 65; // Espaçamento para a próxima venda no PDF
     });
 
     doc.save('historico_vendas_cus.pdf');
@@ -471,7 +475,7 @@ function playClick() {
   document.getElementById('btnReset').addEventListener('click',()=>{if(confirm('Limpar campos?')) addFixedRows();});
   document.getElementById('clearHistory').addEventListener('click',()=>{if(confirm('Limpar histórico?')){history=[]; localStorage.removeItem('calc_history_v1'); renderHistory();}});
 
-  // Inicialização geral do script
+  // Inicialização do Script
   addFixedRows(); renderHistory();
 })();
 </script>
